@@ -1,0 +1,305 @@
+---
+title: "Data summaries"
+output:
+  html_document: default
+  word_document:
+    fig_height: 8
+    fig_width: 8
+    reference_docx: mystyles.docx
+---
+
+```{r setup, echo=FALSE, message=FALSE}
+
+library(dplyr)
+library(ggplot2)
+
+DAT.sites <- read.csv("data/sites.csv")
+DAT.predigest <- read.csv("data/predigest.csv")
+DAT.digest <- read.csv("data/digest.csv")
+
+PointSize <- 3
+TextSize <- 20
+
+GOPTS <- theme_bw() +
+  theme(text = element_text(size = TextSize),
+        legend.position = "bottom",
+        legend.key = element_blank())
+
+ShowCode <- FALSE
+
+dat <- DAT.sites %>%
+  left_join(DAT.predigest ) %>%
+  left_join(DAT.digest)
+
+```
+
+## Data coverage of fire type and time since fire
+
+```{r data_coverage, echo=ShowCode}
+
+ggplot(data = DAT.sites, 
+       aes(x = fireType, y = tsf.years)) +
+  
+  geom_point(position=position_jitter(width=0.2, height=0), 
+             size=3) + 
+  
+  labs(x="", y = "time since fire (years)") +
+  
+  GOPTS
+
+```
+
+##### page break
+## Total carbon
+
+Trend lines are local non-parametric regressions (LOESS) for each fire type, using robust fitting to down-weight outliers.
+
+```{r init_carbon, echo=ShowCode}
+
+ggplot(data = dat, aes(x = tsf.years, y = percentC, colour=fireType)) +
+  geom_point(shape = 16, size = PointSize, alpha = 0.5) +
+  
+  geom_smooth(method = "loess", se = TRUE, 
+              method.args = list(family = "symmetric")) +
+  
+  labs(x = "time since fire (years)", y = "total %C") +
+  
+  scale_colour_discrete(name="Fire type") +
+  
+  facet_grid(depth ~ microsite) +
+  
+  GOPTS
+
+```
+
+##### page break
+
+```{r init_carbon_combined, echo=ShowCode}
+
+ggplot(data = dat, aes(x = tsf.years, y = percentC, colour=fireType)) +
+  geom_point(shape = 16, size = PointSize, alpha = 0.5) +
+  
+  geom_smooth(method = "loess", se = TRUE, 
+              method.args = list(family = "symmetric")) +
+  
+  labs(x = "time since fire (years)", y = "total %C") +
+  
+  scale_colour_discrete(name="Fire type") +
+  
+  facet_wrap(~ depth) +
+  
+  GOPTS
+
+```
+
+##### page break
+## Total nitrogen
+
+Trend lines are local non-parametric regressions (LOESS) for each fire type, using robust fitting to down-weight outliers.
+
+```{r init_nitrogen, echo=ShowCode}
+
+ggplot(data = dat, aes(x = tsf.years, y = percentN, colour=fireType)) +
+  geom_point(shape = 16, size = PointSize, alpha = 0.5) +
+
+  geom_smooth(method = "loess", se = TRUE, 
+              method.args = list(family = "symmetric")) +
+
+  labs(x = "time since fire (years)", y = "%N") +
+  
+  scale_colour_discrete(name="Fire type") +
+  
+  facet_grid(depth ~ microsite) +
+  
+  GOPTS
+
+```
+
+Three samples from a single site have unusually high carbon and nitrogen values:
+`r knitr::kable(filter(DAT.predigest, percentC > 15), pad=0)`
+
+Robert suggests that these should be retained.
+
+##### page break
+
+```{r init_nitrogen_combined, echo=ShowCode}
+
+ggplot(data = dat, aes(x = tsf.years, y = percentN, colour=fireType)) +
+  geom_point(shape = 16, size = PointSize, alpha = 0.5) +
+
+  geom_smooth(method = "loess", se = TRUE, 
+              method.args = list(family = "symmetric")) +
+
+  labs(x = "time since fire (years)", y = "%N") +
+  
+  scale_colour_discrete(name="Fire type") +
+  
+  facet_wrap(~ depth) +
+  
+  GOPTS
+
+```
+
+##### page break
+## Total carbon vs total nitrogen
+
+```{r c_vs_n, echo=ShowCode}
+
+ggplot(data = dat, aes(x = percentC, y = percentN)) +
+  geom_point(shape = 16, size = PointSize, colour = "darkred", alpha = 0.5) +
+  
+  labs(x = "total %C", y = "total %N") +
+  
+  scale_x_log10() +
+  scale_y_log10() +
+  
+  facet_grid(depth ~ microsite) +
+  
+  GOPTS
+
+```
+
+
+##### page break
+## Recalcitrant carbon
+
+Trend lines are local non-parametric regressions (LOESS) for each fire type, using robust fitting to down-weight outliers.
+
+```{r rp_carbon, echo=ShowCode}
+
+ggplot(data = dat, aes(x = tsf.years, y = percentRPC, colour = fireType)) +
+  geom_point(shape = 16, size = PointSize, alpha = 0.5) +
+  
+  geom_smooth(method = "loess", se = TRUE, 
+              method.args = list(family = "symmetric")) +
+  
+  labs(x = "time since fire (years)", y = "%RPC") +
+  
+  scale_colour_discrete(name="Fire type") +
+  
+  facet_grid(depth ~ microsite) +
+  
+  GOPTS
+
+```
+
+##### page break
+
+```{r rp_carbon_combined, echo=ShowCode}
+
+ggplot(data = dat, aes(x = tsf.years, y = percentRPC, colour = fireType)) +
+  geom_point(shape = 16, size = PointSize, alpha = 0.5) +
+  
+  geom_smooth(method = "loess", se = TRUE, 
+              method.args = list(family = "symmetric")) +
+  
+  labs(x = "time since fire (years)", y = "%RPC") +
+  
+  scale_colour_discrete(name="Fire type") +
+  
+  facet_wrap(~ depth) +
+  
+  GOPTS
+
+```
+
+
+##### page break
+## Recalcitrant vs total carbon
+
+Ratio of RP carbon vs total carbon - looking for any suggestion of pattern in relation to stratifying variables.
+
+Trend lines are local non-parametric regressions (LOESS) for each fire type, using robust fitting to down-weight outliers.
+
+
+```{r rpc_ratio_vs_totalc, echo = ShowCode}
+
+dat <- mutate(dat, ratioRPC = percentRPC / percentC)
+
+YLIM <- c(0, 0.6)
+
+ggplot(data = dat, aes(x = tsf.years, y = ratioRPC, colour = fireType)) +
+  geom_point(shape = 16, size = PointSize, alpha = 0.5,
+             position = position_jitter(width=0.2, height=0)) +
+  
+  geom_smooth(method = "loess", se = TRUE, 
+              method.args = list(family = "symmetric")) +
+  
+  scale_y_continuous(limits = YLIM) +
+
+  scale_colour_discrete(name="Fire type") +
+  
+  labs(x = "time since fire (years)", y = "ratio RPC to total C") +
+
+  facet_grid(depth ~ microsite) +
+  
+  GOPTS
+
+```
+
+##### page break
+
+```{r rpc_ratio_vs_totalc_combined, echo = ShowCode}
+
+ggplot(data = dat, aes(x = tsf.years, y = ratioRPC, colour = fireType)) +
+  geom_point(shape = 16, size = PointSize, alpha = 0.5,
+             position = position_jitter(width=0.2, height=0)) +
+  
+  geom_smooth(method = "loess", se = TRUE, 
+              method.args = list(family = "symmetric")) +
+  
+  scale_y_continuous(limits = YLIM) +
+
+  scale_colour_discrete(name="Fire type") +
+  
+  labs(x = "time since fire (years)", y = "ratio RPC to total C") +
+
+  facet_grid(~ depth) +
+  
+  GOPTS
+
+```
+
+##### page break
+Another way of looking at this, plotting RP carbon vs total carbon directly.
+
+```{r rpc_vs_totalc, echo=ShowCode}
+
+ggplot(data = dat, aes(x = percentC, y = percentRPC, colour = tsf.years)) +
+  geom_point(shape = 0, size = PointSize, alpha = 0.5) +
+  
+  #scale_x_log10() +
+  #scale_y_log10() +
+  scale_color_gradient2(name = "Time since fire",
+                        low = "red", mid = "lightgrey", high = "darkblue",
+                        midpoint = 20) +
+  
+  labs(x = "% total carbon", y = "% recalcitrant carbon") +
+
+  facet_grid(depth + fireType ~ microsite) +
+  
+  GOPTS
+
+```
+
+##### page break
+
+```{r rpc_vs_totalc_combined, echo=ShowCode}
+
+ggplot(data = dat, aes(x = percentC, y = percentRPC, colour = tsf.years)) +
+  geom_point(shape = 0, size = PointSize, alpha = 0.5) +
+  
+  #scale_x_log10() +
+  #scale_y_log10() +
+  scale_color_gradient2(name = "Time since fire",
+                        low = "red", mid = "lightgrey", high = "darkblue",
+                        midpoint = 20) +
+  
+  labs(x = "% total carbon", y = "% recalcitrant carbon") +
+
+  facet_grid(fireType ~ depth) +
+  
+  GOPTS
+
+```
+
