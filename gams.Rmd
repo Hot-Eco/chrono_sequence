@@ -13,7 +13,9 @@ output:
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
 library(mgcv)
 
 DAT.sites <- read.csv("data/sites.csv")
@@ -54,9 +56,6 @@ DAT <- DAT %>%
   arrange(siteId, fireType, microsite, depth) %>%
   mutate(sampleIndex = row_number())
 
-DAT <- as_tibble(DAT)
-
-
 NSITES <- nlevels(DAT$fSiteId)
 
 
@@ -80,7 +79,7 @@ Labels <- list(
   sitesFT = "Sites by fire type",
   
   fit = "Fitted values",
-  res.p = "Pearson residuals",
+  res = "Deviance residuals",
   
   site.by.res = "Sites ordered by mean residual"
 )
@@ -255,10 +254,10 @@ The R code to fit this model is:
 
 ```{r echo = TRUE}
 
-m1 <- gam(log(percentC) ~ s(tsf.years, by = dft, bs = "cr") + fireType + depth + microsite,
-          data = DAT,
-          method = "REML")
- 
+mtotal <- gam(log(percentC) ~ s(tsf.years, by = dft, bs = "cr") + 
+                fireType + depth + microsite,
+              data = DAT,
+              method = "REML")
 
 ```
 
@@ -268,15 +267,15 @@ Examining model residuals...
 ```{r}
 
 dat <- data_frame(
-  resid = resid(m1, type = "pearson"),
-  fitted = fitted(m1)
+  resid = resid(mtotal),
+  fitted = fitted(mtotal)
 )
 
 ggplot(data = dat) +
   geom_histogram(aes(x = resid), binwidth = 0.1,
                  fill = "grey80", colour = "black") +
   
-  labs(x = Labels$res.p, y = "count") +
+  labs(x = Labels$res, y = "count") +
   
   GOPTS
 
@@ -302,7 +301,7 @@ ggplot(data = dat, aes(x = fitted, y = resid)) +
 
   ZeroLine +
   
-  labs(x = Labels$fit, y = Labels$res.p) +
+  labs(x = Labels$fit, y = Labels$res) +
   
   GOPTS
 
@@ -316,6 +315,8 @@ ggplot(data = dat, aes(x = tsf.years, y = resid)) +
   geom_point(size = POINT_SIZE) +
   
   ZeroLine +
+  
+  labs(x = Labels$tsf, y = Labels$res) +
 
   GOPTS +
 
@@ -334,7 +335,7 @@ ggplot(data = dat, aes(x = fireType, y = resid)) +
   
   ZeroLine +
   
-  labs(x = Labels$firetype, y = Labels$res.p) +
+  labs(x = Labels$firetype, y = Labels$res) +
   
   GOPTS +
   
@@ -353,7 +354,7 @@ ggplot(data = dat, aes(x = microsite, y = resid)) +
   
   ZeroLine +
   
-  labs(x = Labels$microsite, y = Labels$res.p) +
+  labs(x = Labels$microsite, y = Labels$res) +
   
   GOPTS +
   
@@ -384,7 +385,7 @@ ggplot(data = dat2, aes(x = order, y = resid)) +
   
   scale_x_discrete(labels = NULL) +
   
-  labs(x = Labels$site.by.res, y = Labels$res.p) +
+  labs(x = Labels$site.by.res, y = Labels$res) +
   
   GOPTS
 
@@ -411,10 +412,11 @@ Here we add a random-effect smoother to the model to account for site difference
 dat <- DAT
 dat$flag <- 1
 
-m2 <- gam(log(percentC) ~ s(tsf.years, by = dft, bs = "cr") + fireType + depth + microsite + 
-            s(fSiteId, bs = "re", by = flag),
-          data = dat,
-          method = "REML")
+mtotal.site <- gam(log(percentC) ~ s(tsf.years, by = dft, bs = "cr") + 
+                     fireType + depth + microsite + 
+                     s(fSiteId, bs = "re", by = flag),
+                   data = dat,
+                   method = "REML")
 
 ```
 
@@ -422,8 +424,8 @@ Once again we plot the residuals against sites ordered in the same manner as bef
 
 ```{r}
 
-dat$resid <- resid(m2, type = "pearson")
-dat$fitted <- fitted(m2)
+dat$resid <- resid(mtotal.site)
+dat$fitted <- fitted(mtotal.site)
 
 site.order <- dat %>%
   group_by(fSiteId) %>%
@@ -439,7 +441,7 @@ ggplot(data = dat2, aes(x = order, y = resid)) +
   
   scale_x_discrete(labels = NULL) +
   
-  labs(x = Labels$site.by.res, y = Labels$res.p) +
+  labs(x = Labels$site.by.res, y = Labels$res) +
   GOPTS
 
 ```
@@ -466,17 +468,17 @@ Comparing the two models with AIC:
 
 ```{r}
 
-AIC(m1, m2)
+AIC(mtotal, mtotal.site)
 
 ```
 
-The second model, incorporating site random effect, is clearly preferred.
+The second model, incorporating site random effects, is clearly preferred.
 
 Summary of the fitted model:
 
 ```{r}
 
-summary(m2)
+summary(mtotal.site)
 
 ```
 
@@ -494,7 +496,7 @@ dat.predict <- cbind(
   fSiteId = levels(DAT$fSiteId)[1]
 )
 
-fit <- do_predict(m2, dat.predict, "percentC", exp)
+fit <- do_predict(mtotal.site, dat.predict, "percentC", exp)
 
 ggplot(data = fit, aes(x = tsf.years, y = percentC)) +
   geom_ribbon(aes(ymin = lwr, ymax = upr, fill = fireType), alpha = 0.3) +
@@ -611,12 +613,12 @@ The form of the model follows that used for total carbon as the response, the on
 dat <- DAT
 dat$flag <- 1
 
-m3 <- gam(log(percentRPC) ~ s(tsf.years, by = dft) + 
-            fireType + depth + microsite +
-            s(percentC) +
-            s(fSiteId, bs = "re", by = flag),
-          data = dat,
-          method = "REML")
+mrpc <- gam(log(percentRPC) ~ s(tsf.years, by = dft, bs = "cr") + 
+              fireType + depth + microsite +
+              s(percentC) +
+              s(fSiteId, bs = "re", by = flag),
+            data = dat,
+            method = "REML")
 
 ```
 
@@ -624,8 +626,8 @@ Check residuals against sites ordered in the same manner as for the percent carb
 
 ```{r}
 
-dat$resid <- resid(m3, type = "pearson")
-dat$fitted <- fitted(m3)
+dat$resid <- resid(mrpc)
+dat$fitted <- fitted(mrpc)
 
 site.order <- dat %>%
   group_by(fSiteId) %>%
@@ -641,7 +643,7 @@ ggplot(data = dat2, aes(x = order, y = resid)) +
   
   scale_x_discrete(labels = NULL) +
   
-  labs(x = Labels$site.by.res, y = Labels$res.p) +
+  labs(x = Labels$site.by.res, y = Labels$res) +
   GOPTS
 
 ```
@@ -676,7 +678,8 @@ knitr::kable(outlier)
 
 ```
 
-The offender is sample number 166. Its value of RPC is very low compared to the other two replicates. Checked with Robert and he suggests that this was most likely a problem with the digestion. The sample will have had little influence on the model, but to be virtuous we discard it and re-run...
+
+The offender is sample number 166. Its value of RPC is very low compared to the other two replicates. Checked with Robert and he suggests that this was most likely a problem with the digestion. The sample will have had little influence on the model, but to be safe we discard it and re-run...
 
 ```{r echo = TRUE}
 
@@ -685,7 +688,7 @@ DAT <- filter(DAT, sampleIndex != 166)
 dat <- DAT
 dat$flag <- 1
 
-m3 <- gam(log(percentRPC) ~ s(tsf.years, by = dft) + 
+mrpc <- gam(log(percentRPC) ~ s(tsf.years, by = dft, bs = "cr") + 
             fireType + depth + microsite +
             s(percentC) +
             s(fSiteId, bs = "re", by = flag),
@@ -698,8 +701,8 @@ Re-check the residuals:
 
 ```{r}
 
-dat$resid <- resid(m3, type = "pearson")
-dat$fitted <- fitted(m3)
+dat$resid <- resid(mrpc)
+dat$fitted <- fitted(mrpc)
 
 qqnorm(dat$resid, main = "Residual Q-Q plot")
 qqline(dat$resid)
@@ -711,7 +714,7 @@ Summary of the fitted model:
 
 ```{r}
 
-summary(m3)
+summary(mrpc)
 
 ```
 
@@ -721,7 +724,7 @@ Total carbon was fitted as a smooth term. Its estimated degrees of freedom (~ 5.
 
 ```{r}
 
-plot(m3, select = 5)
+plot(mrpc, select = 5)
 
 ```
 It is likely that the function is strongly influenced by the three samples with high total carbon values. However, fitting the model again with these samples down-weighted produced a similarly shaped smoother.
@@ -730,7 +733,6 @@ It is likely that the function is strongly influenced by the three samples with 
 
 Within each combination of fire type, depth and micro-site, we derive predictions over times since fire based on the median value of total carbon. 
 
-**Check with Robert whether this is sensible.**
 
 ```{r}
 
@@ -746,7 +748,7 @@ Cmeans <- DAT %>%
 
 dat.predict <- left_join(dat.predict, Cmeans)
 
-fit <- do_predict(m3, dat.predict, "percentRPC", exp)
+fit <- do_predict(mrpc, dat.predict, "percentRPC", exp)
 
 ggplot(data = fit, aes(x = tsf.years, y = percentRPC)) +
   geom_ribbon(aes(ymin = lwr, ymax = upr, fill = fireType), alpha = 0.3) +
@@ -857,11 +859,11 @@ last_plot() +
 dat <- DAT
 dat$flag <- 1
 
-m4 <- gam(log(propRPC) ~ s(tsf.years, by = dft) + 
-            fireType + depth + microsite +
-            s(fSiteId, bs = "re", by = flag),
-          data = dat,
-          method = "REML")
+mrpc.prop <- gam(log(propRPC) ~ s(tsf.years, by = dft, bs = "cr") + 
+                   fireType + depth + microsite +
+                   s(fSiteId, bs = "re", by = flag),
+                 data = dat,
+                 method = "REML")
 
 ```
 
@@ -870,8 +872,8 @@ Check residuals against sites ordered in the same manner as for the percent carb
 
 ```{r}
 
-dat$resid <- resid(m4, type = "pearson")
-dat$fitted <- fitted(m4)
+dat$resid <- resid(mrpc.prop)
+dat$fitted <- fitted(mrpc.prop)
 
 site.order <- dat %>%
   group_by(fSiteId) %>%
@@ -887,7 +889,7 @@ ggplot(data = dat2, aes(x = order, y = resid)) +
   
   scale_x_discrete(labels = NULL) +
   
-  labs(x = Labels$site.by.res, y = Labels$res.p) +
+  labs(x = Labels$site.by.res, y = Labels$res) +
   GOPTS
 
 ```
@@ -907,7 +909,7 @@ Summary of the fitted model:
 
 ```{r}
 
-summary(m4)
+summary(mrpc.prop)
 
 ```
 
@@ -921,7 +923,7 @@ dat.predict <- cbind(
   fSiteId = levels(DAT$fSiteId)[1]
 )
 
-fit <- do_predict(m4, dat.predict, "propRPC", exp)
+fit <- do_predict(mrpc.prop, dat.predict, "propRPC", exp)
 
 ggplot(data = fit, aes(x = tsf.years, y = propRPC)) +
   geom_ribbon(aes(ymin = lwr, ymax = upr, fill = fireType), alpha = 0.3) +
