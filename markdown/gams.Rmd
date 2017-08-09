@@ -18,7 +18,16 @@ library(ggplot2)
 library(tidyr)
 library(mgcv)
 
-library(mxbstuff)
+library(mxbutils)
+
+
+# Output folder for publication quality graphs
+PUBLICATION_GRAPHS_PATH <- mdPath("outputs")
+
+# Set environment variable to local Ghostscript installation to
+# allow us to embed fonts in the EPS files for publication graphs
+Sys.setenv(R_GSCMD = "c:/Program Files/gs/gs9.21/bin/gswin64c.exe")
+
 
 DAT.sites <- read.csv( mdPath("data/sites.csv") )
 DAT.predigest <- read.csv( mdPath("data/predigest.csv") )
@@ -63,12 +72,15 @@ NSITES <- nlevels(DAT$fSiteId)
 
 # Useful bits for ggplot
 
-GOPTS <-
+theme_set(
   theme_bw() +
-  theme(text = element_text(size=20),
+  theme(text = element_text(size=18),
+        axis.text = element_text(size=12),
         legend.position = "bottom")
+)
 
-POINT_SIZE <- 2
+
+POINT_SIZE <- 3
 LINE_SIZE <- 1
 RIBBON_ALPHA <- 0.3
 
@@ -158,9 +170,7 @@ ggplot(data = DAT, aes(x = microsite, y = tsf.years)) +
   
   FireTypeColour +
   
-  labs(x = Labels$microsite, y = Labels$tsf) +
-  
-  GOPTS
+  labs(x = Labels$microsite, y = Labels$tsf)
 
 ```
 
@@ -186,8 +196,6 @@ ggplot(data = DAT, aes(x = percentC, y = ftOrder)) +
   scale_y_discrete(breaks = NULL, labels = NULL) +
 
   labs(x = Labels$percentC, y = Labels$sitesFT) +
-  
-  GOPTS +
   
   facet_wrap(~ depth)
 
@@ -220,8 +228,6 @@ ggplot(data = DAT, aes(x = microsite, y = percentC)) +
   
   labs(x = Labels$microsite, y = Labels$percentC) +
   
-  GOPTS +
-  
   facet_wrap(~ depth)
 
 ```
@@ -240,8 +246,6 @@ ggplot(data = DAT, aes(x = tsf.years, y = percentC)) +
   
   labs(x = Labels$tsf, y = Labels$percentC) +
 
-  GOPTS +
-  
   facet_wrap(~ depth)
 
 ```
@@ -293,9 +297,7 @@ ggplot(data = dat) +
   geom_histogram(aes(x = resid), binwidth = 0.1,
                  fill = "grey80", colour = "black") +
   
-  labs(x = Labels$res, y = "count") +
-  
-  GOPTS
+  labs(x = Labels$res, y = "count")
 
 ```
 
@@ -319,9 +321,7 @@ ggplot(data = dat, aes(x = fitted, y = resid)) +
 
   ZeroLine +
   
-  labs(x = Labels$fit, y = Labels$res) +
-  
-  GOPTS
+  labs(x = Labels$fit, y = Labels$res)
 
 ```
 
@@ -335,8 +335,6 @@ ggplot(data = dat, aes(x = tsf.years, y = resid)) +
   ZeroLine +
   
   labs(x = Labels$tsf, y = Labels$res) +
-
-  GOPTS +
 
   facet_grid(depth ~ fireType)
 
@@ -355,8 +353,6 @@ ggplot(data = dat, aes(x = fireType, y = resid)) +
   
   labs(x = Labels$firetype, y = Labels$res) +
   
-  GOPTS +
-  
   facet_wrap( ~ depth)
 
 ```
@@ -373,8 +369,6 @@ ggplot(data = dat, aes(x = microsite, y = resid)) +
   ZeroLine +
   
   labs(x = Labels$microsite, y = Labels$res) +
-  
-  GOPTS +
   
   facet_wrap( ~ depth)
 
@@ -403,9 +397,7 @@ ggplot(data = dat.gg, aes(x = order, y = resid)) +
   
   scale_x_discrete(labels = NULL) +
   
-  labs(x = Labels$site.by.res, y = Labels$res) +
-  
-  GOPTS
+  labs(x = Labels$site.by.res, y = Labels$res)
 
 ```
 
@@ -463,8 +455,7 @@ ggplot(data = dat.gg, aes(x = order, y = resid)) +
   
   scale_x_discrete(labels = NULL) +
   
-  labs(x = Labels$site.by.res, y = Labels$res) +
-  GOPTS
+  labs(x = Labels$site.by.res, y = Labels$res)
 
 ```
 
@@ -559,10 +550,41 @@ ggplot(data = fit, aes(x = tsf.years, y = percentC)) +
   
   labs(x = Labels$tsf, y = Labels$percentC) +
   
-  facet_grid(depth ~ microsite, scales = "fixed") +
-  GOPTS
+  facet_grid(depth ~ microsite, scales = "fixed")
 
 ```
+
+A grey-scale version of the same graph for publication.
+
+(To use transparency (ie. alpha) we have to save as PDF then convert to EPS outside of R)
+
+```{r}
+
+ggplot(data = fit, aes(x = tsf.years, y = percentC)) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr, group = fireType),
+              fill = "grey", alpha = 0.5) +
+  
+  geom_point(data = DAT, aes(shape = fireType), size = POINT_SIZE) +
+  
+  scale_shape_manual(name = Labels$firetype, values = c(16, 1)) +
+  
+  geom_line(aes(linetype = fireType), size = LINE_SIZE) +
+  
+  scale_linetype_discrete(name = Labels$firetype) +
+  
+  labs(x = Labels$tsf, y = Labels$percentC) +
+  
+  facet_grid(depth ~ microsite, scales = "fixed")
+
+
+fname <- file.path(PUBLICATION_GRAPHS_PATH, "sawyer_figure_2.pdf")
+
+ggsave(fname,
+       device = "pdf",
+       width = 11.69, height = 8.27, units = "in")
+
+```
+
 
 ### Separate figures for graphical abstract
 
@@ -636,8 +658,7 @@ ggplot(data = fit, aes(x = tsf.years, y = percentC)) +
   
   labs(x = Labels$tsf, y = Labels$percentC) +
   
-  facet_wrap(~ depth, ncol = 1) +
-  GOPTS
+  facet_wrap(~ depth, ncol = 1)
 
 ```
 
@@ -678,8 +699,32 @@ ggplot(data = diffs, aes(x = tsf.years)) +
   
   labs(x = Labels$tsf, y = "%C (wildfire - prescribed)") +
   
-  facet_grid(depth ~ microsite) +
-  GOPTS
+  facet_grid(depth ~ microsite)
+
+
+```
+
+Grey-scale version of graph for publication.
+
+```{r}
+
+ggplot(data = diffs, aes(x = tsf.years)) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), fill = "grey80") +
+  
+  geom_line(aes(y = meandiff)) +
+  
+  ZeroLine +
+  
+  labs(x = Labels$tsf, y = "%C (wildfire - prescribed)") +
+  
+  facet_grid(depth ~ microsite)
+
+
+fname <- file.path(PUBLICATION_GRAPHS_PATH, "sawyer_figure_3.pdf")
+
+ggsave(fname,
+       device = "pdf",
+       width = 11.69, height = 8.27, units = "in")
 
 
 ```
@@ -711,8 +756,6 @@ ggplot(data = DAT, aes(x = percentRPC, y = ftOrder)) +
   
   labs(x = Labels$percentRPC, y = Labels$sitesFT) +
   
-  GOPTS +
-  
   facet_wrap(~ depth)
 
 ```
@@ -739,8 +782,6 @@ ggplot(data = DAT, aes(x = microsite, y = percentRPC)) +
   
   labs(x = Labels$microsite, y = Labels$percentRPC) +
   
-  GOPTS +
-  
   facet_wrap(~ depth)
 
 ```
@@ -759,8 +800,6 @@ ggplot(data = DAT, aes(x = tsf.years, y = percentRPC)) +
   
   labs(x = Labels$tsf, y = Labels$percentRPC) +
 
-  GOPTS +
-  
   facet_wrap(~ depth)
 
 ```
@@ -820,8 +859,7 @@ ggplot(data = dat.gg, aes(x = order, y = resid)) +
   
   scale_x_discrete(labels = NULL) +
   
-  labs(x = Labels$site.by.res, y = Labels$res) +
-  GOPTS
+  labs(x = Labels$site.by.res, y = Labels$res)
 
 ```
 
@@ -967,10 +1005,45 @@ ggplot(data = fit, aes(x = tsf.years, y = percentRPC)) +
   
   labs(x = Labels$tsf, y = Labels$percentRPC) +
   
-  facet_grid(depth ~ microsite) +
-  GOPTS
+  facet_grid(depth ~ microsite)
 
 ```
+
+
+Grey-scale version of same graph for publication:
+
+(To use transparency (ie. alpha) we have to save as PDF then convert to EPS outside of R)
+
+
+```{r}
+
+ggplot(data = fit, aes(x = tsf.years, y = percentRPC)) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr, group = fireType),
+              fill = "grey",
+              alpha = 0.5) +
+  
+  geom_point(data = DAT, aes(shape = fireType), size = POINT_SIZE) +
+  
+  scale_shape_manual(name = Labels$firetype, values = c(16, 1)) +
+  
+  geom_line(aes(linetype = fireType), size = LINE_SIZE) +
+  
+  scale_linetype_discrete(name = Labels$firetype) +
+  
+  labs(x = Labels$tsf, y = Labels$percentRPC) +
+  
+  facet_grid(depth ~ microsite, scales = "fixed")
+
+
+fname <- file.path(PUBLICATION_GRAPHS_PATH, "sawyer_figure_4.pdf")
+
+ggsave(fname,
+       device = "pdf",
+       width = 11.69, height = 8.27, units = "in")
+
+```
+
+
 
 Predictions excluding micro-site effects.
 
@@ -1006,8 +1079,7 @@ ggplot(data = fit, aes(x = tsf.years, y = percentRPC)) +
   
   labs(x = Labels$tsf, y = Labels$percentRPC) +
   
-  facet_wrap(~ depth, ncol = 1) +
-  GOPTS
+  facet_wrap(~ depth, ncol = 1)
 
 ```
 
@@ -1061,11 +1133,36 @@ ggplot(data = diffs, aes(x = tsf.years)) +
   
   labs(x = Labels$tsf, y = "%RPC (wildfire - prescribed)") +
   
-  facet_grid(depth ~ microsite) +
-  GOPTS
+  facet_grid(depth ~ microsite)
 
 
 ```
+
+
+Grey-scale version of graph for publication.
+
+```{r}
+
+ggplot(data = diffs, aes(x = tsf.years)) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), fill = "grey80") +
+  
+  geom_line(aes(y = meandiff)) +
+  
+  ZeroLine +
+  
+  labs(x = Labels$tsf, y = "%RPC (wildfire - prescribed)") +
+  
+  facet_grid(depth ~ microsite)
+
+
+fname <- file.path(PUBLICATION_GRAPHS_PATH, "sawyer_figure_5.pdf")
+
+ggsave(fname,
+       device = "pdf",
+       width = 11.69, height = 8.27, units = "in")
+
+```
+
 
 ## Proportion of recalcitrant pyrogenic carbon
 
@@ -1089,8 +1186,6 @@ ggplot(data = DAT, aes(x = propRPC, y = ftOrder)) +
   scale_y_discrete(breaks = NULL, labels = NULL) +
   
   labs(x = Labels$propRPC, y = Labels$sitesFT) +
-  
-  GOPTS +
   
   facet_wrap(~ depth)
 
@@ -1118,8 +1213,6 @@ ggplot(data = DAT, aes(x = microsite, y = propRPC)) +
   
   labs(x = Labels$microsite, y = Labels$propRPC) +
   
-  GOPTS +
-  
   facet_wrap(~ depth)
 
 ```
@@ -1138,8 +1231,6 @@ ggplot(data = DAT, aes(x = tsf.years, y = propRPC)) +
   
   labs(x = Labels$tsf, y = Labels$propRPC) +
 
-  GOPTS +
-  
   facet_wrap(~ depth)
 
 ```
@@ -1196,8 +1287,7 @@ ggplot(data = dat.gg, aes(x = order, y = resid)) +
   
   scale_x_discrete(labels = NULL) +
   
-  labs(x = Labels$site.by.res, y = Labels$res) +
-  GOPTS
+  labs(x = Labels$site.by.res, y = Labels$res)
 
 ```
 
@@ -1264,8 +1354,7 @@ ggplot(data = fit, aes(x = tsf.years, y = propRPC)) +
   
   labs(x = Labels$tsf, y = Labels$propRPC) +
   
-  facet_grid(depth ~ microsite) +
-  GOPTS
+  facet_grid(depth ~ microsite)
 
 ```
 
@@ -1290,8 +1379,7 @@ ggplot(data = fit, aes(x = tsf.years, y = propRPC)) +
   
   labs(x = Labels$tsf, y = Labels$propRPC) +
   
-  facet_wrap(~ depth, ncol = 1) +
-  GOPTS
+  facet_wrap(~ depth, ncol = 1)
 
 ```
 
@@ -1331,9 +1419,7 @@ ggplot(data = diffs, aes(x = tsf.years)) +
   
   labs(x = Labels$tsf, y = "RPC prop (wildfire - prescribed)") +
   
-  facet_grid(depth ~ microsite) +
-  GOPTS
-
+  facet_grid(depth ~ microsite)
 
 ```
 
@@ -1359,8 +1445,6 @@ ggplot(data = DAT, aes(x = percentN, y = ftOrder)) +
   scale_y_discrete(breaks = NULL, labels = NULL) +
 
   labs(x = Labels$percentN, y = Labels$sitesFT) +
-  
-  GOPTS +
   
   facet_wrap(~ depth)
 
@@ -1393,8 +1477,6 @@ ggplot(data = DAT, aes(x = microsite, y = percentN)) +
   
   labs(x = Labels$microsite, y = Labels$percentN) +
   
-  GOPTS +
-  
   facet_wrap(~ depth)
 
 ```
@@ -1413,8 +1495,6 @@ ggplot(data = DAT, aes(x = tsf.years, y = percentN)) +
   
   labs(x = Labels$tsf, y = Labels$percentN) +
 
-  GOPTS +
-  
   facet_wrap(~ depth)
 
 ```
@@ -1482,8 +1562,7 @@ ggplot(data = dat.gg, aes(x = order, y = resid)) +
   
   scale_x_discrete(labels = NULL) +
   
-  labs(x = Labels$site.by.res, y = Labels$res) +
-  GOPTS
+  labs(x = Labels$site.by.res, y = Labels$res)
 
 ```
 
@@ -1514,9 +1593,7 @@ ggplot(data = dat) +
   geom_histogram(aes(x = resid), binwidth = 0.1,
                  fill = "grey80", colour = "black") +
   
-  labs(x = Labels$res, y = "count") +
-  
-  GOPTS
+  labs(x = Labels$res, y = "count")
 
 ```
 
@@ -1541,9 +1618,7 @@ ggplot(data = dat, aes(x = fitted, y = resid)) +
 
   ZeroLine +
   
-  labs(x = Labels$fit, y = Labels$res) +
-  
-  GOPTS
+  labs(x = Labels$fit, y = Labels$res)
 
 ```
 
@@ -1557,8 +1632,6 @@ ggplot(data = dat, aes(x = tsf.years, y = resid)) +
   ZeroLine +
   
   labs(x = Labels$tsf, y = Labels$res) +
-
-  GOPTS +
 
   facet_grid(depth ~ fireType)
 
@@ -1577,8 +1650,6 @@ ggplot(data = dat, aes(x = fireType, y = resid)) +
   
   labs(x = Labels$firetype, y = Labels$res) +
   
-  GOPTS +
-  
   facet_wrap( ~ depth)
 
 ```
@@ -1596,8 +1667,6 @@ ggplot(data = dat, aes(x = microsite, y = resid)) +
   
   labs(x = Labels$microsite, y = Labels$res) +
   
-  GOPTS +
-  
   facet_wrap( ~ depth)
 
 ```
@@ -1611,8 +1680,7 @@ ggplot(data = dat, aes(x = exp(fitted), y = percentN)) +
   
   geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
   
-  labs(x = Labels$fit, y = Labels$percentN) +
-  GOPTS
+  labs(x = Labels$fit, y = Labels$percentN)
 
 ```
 
@@ -1671,8 +1739,7 @@ ggplot(data = fit, aes(x = tsf.years, y = percentN)) +
   
   labs(x = Labels$tsf, y = Labels$percentN) +
   
-  facet_grid(depth ~ microsite, scales = "fixed") +
-  GOPTS
+  facet_grid(depth ~ microsite, scales = "fixed")
 
 ```
 
@@ -1714,8 +1781,7 @@ ggplot(data = diffs, aes(x = tsf.years)) +
   
   labs(x = Labels$tsf, y = "%C (wildfire - prescribed)") +
   
-  facet_grid(depth ~ microsite) +
-  GOPTS
+  facet_grid(depth ~ microsite)
 
 
 ```
@@ -1757,9 +1823,7 @@ ggplot(data = dat) +
   geom_histogram(aes(x = resid), binwidth = 0.1,
                  fill = "grey80", colour = "black") +
   
-  labs(x = Labels$res, y = "count") +
-  
-  GOPTS
+  labs(x = Labels$res, y = "count")
 
 ```
 
@@ -1817,9 +1881,7 @@ ggplot(data = dat, aes(x = fitted, y = resid)) +
 
   ZeroLine +
   
-  labs(x = Labels$fit, y = Labels$res) +
-  
-  GOPTS
+  labs(x = Labels$fit, y = Labels$res)
 
 ```
 
@@ -1833,8 +1895,6 @@ ggplot(data = dat, aes(x = tsf.years, y = resid)) +
   ZeroLine +
   
   labs(x = Labels$tsf, y = Labels$res) +
-
-  GOPTS +
 
   facet_grid(depth ~ fireType)
 
@@ -1853,8 +1913,6 @@ ggplot(data = dat, aes(x = fireType, y = resid)) +
   
   labs(x = Labels$firetype, y = Labels$res) +
   
-  GOPTS +
-  
   facet_wrap( ~ depth)
 
 ```
@@ -1872,8 +1930,6 @@ ggplot(data = dat, aes(x = microsite, y = resid)) +
   
   labs(x = Labels$microsite, y = Labels$res) +
   
-  GOPTS +
-  
   facet_wrap( ~ depth)
 
 ```
@@ -1887,8 +1943,7 @@ ggplot(data = dat, aes(x = exp(fitted), y = cnratio)) +
   
   geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
   
-  labs(x = Labels$fit, y = Labels$cnratio) +
-  GOPTS
+  labs(x = Labels$fit, y = Labels$cnratio)
 
 ```
 
@@ -1941,8 +1996,7 @@ ggplot(data = fit, aes(x = tsf.years, y = cnratio)) +
   
   labs(x = Labels$tsf, y = Labels$cnratio) +
   
-  facet_grid(depth ~ microsite, scales = "fixed") +
-  GOPTS
+  facet_grid(depth ~ microsite, scales = "fixed")
 
 ```
 
@@ -1983,8 +2037,7 @@ ggplot(data = diffs, aes(x = tsf.years)) +
   
   labs(x = Labels$tsf, y = "%C (wildfire - prescribed)") +
   
-  facet_grid(depth ~ microsite) +
-  GOPTS
+  facet_grid(depth ~ microsite)
 
 
 ```
